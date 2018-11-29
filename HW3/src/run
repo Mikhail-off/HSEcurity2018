@@ -1,0 +1,3 @@
+#!/bin/bash
+
+socat -T10 TCP-LISTEN:7777,reuseaddr,fork,ignoreeof EXEC:'setarch x86_64 -R /home/user/pwn_task/expl'

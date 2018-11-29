@@ -1,0 +1,3 @@
+#!/bin/bash
+
+g++ -m32 -O0 -fno-pie -no-pie -fno-stack-protector -z execstack -Wformat-security main.cpp -o expl -g
