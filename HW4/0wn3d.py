@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 # coding: utf-8
+from tqdm import tqdm
+from itertools import product
 
 integrity_check_suffix = [b'whatislo', b'vebabydo', b'nthurtme', b'donthurt', b'menomore']
 MASK32 = 1 << 32
@@ -35,8 +37,10 @@ def decrypt(key, pair):
 
     return v0 % MASK32, v1 % MASK32
 
-def find_key(before_pair, after_pair):
+def find_key_v1(before_pair, after_pair):
     """
+    No brute force version
+
     before -- pair to encrypt
     after -- encrypted pair
     """
@@ -56,16 +60,63 @@ def find_key(before_pair, after_pair):
     key[3] = ((key[1] << 4) ^ xored_k1_k3) << 5
     return key
 
+def find_key_v2(before_pair, after_pair):
+    """
+    brute force 2**12 versions
+
+    before -- pair to encrypt
+    after -- encrypted pair
+    """
+    delta = 0x9e3779b9
+    key = [0]*4
+    
+    progress = tqdm(total=2**12)
+    for k1, k3 in product(range(2**8), range(2**3)):
+        progress.update()
+        k3 = k3 << 5
+        temp_key = [0, k1, 0, k3]
+        if before_pair[1] == decrypt(temp_key, after_pair)[1]:
+            for k0, k2 in product(range(2**8), range(2**3)):
+                progress.update()
+                k2 = k2 << 5
+                key = temp_key
+                key[0] = k0
+                key[2] = k2
+                if before_pair == decrypt(key, after_pair):
+                    return key
+    progress.update(2**11)
+    return None
+
+def find_key_v3(before_pair, after_pair):
+    """
+    brute force 2**22 versions
+
+    before -- pair to encrypt
+    after -- encrypted pair
+    """
+    delta = 0x9e3779b9
+    iterations = 2**22
+    for key in tqdm(product(range(2**8), range(2**8), range(2**3), range(2**3)), total=iterations):
+        key = key[0], key[1], key[2] << 5, key[3] << 5
+        if before_pair == decrypt(key, after_pair):
+            return key
+    return None
+
 def get_keys(vulnerable_text):
+    finders = [find_key_v1, find_key_v2, find_key_v3]
     keys = []
     after = hex2pair(vulnerable_text)
-    for vladislav in integrity_check_suffix:
-        before = bytes2pair(vladislav)
-        key = find_key(before, after)
-        decrypted = decrypt(key, after)
-        decrypted = pair2bytes(*decrypted)
-        if decrypted == vladislav and all(map(lambda x: x == x & 0xff, key)):
-            keys.append(key)
+    for find_key in finders:
+        for vladislav in integrity_check_suffix:
+            before = bytes2pair(vladislav)
+            key = find_key(before, after)
+            if key is None:
+                continue
+            decrypted = decrypt(key, after)
+            decrypted = pair2bytes(*decrypted)
+            if decrypted == vladislav and all(map(lambda x: x == x & 0xff, key)):
+                keys.append(key)
+                return keys
     return keys
 
 def _main():
