@@ -69,14 +69,27 @@ def get_keys(vulnerable_text):
     return keys
 
 def _main():
-    plaintext = input("Input your encrypted text: ").encode()
-    if len(plaintext) % 16 != 0:
-        raise NotImplementedError("Ciphertext should be divisible by 8 (or 16 hex chars)")
+    text = input("Input your encrypted text: ").encode()
+    if len(text) == 0:
+        raise NotImplementedError("Empty text")
+    if len(text) % 16 != 0:
+        raise NotImplementedError("text should be divisible by 8 (or 16 hex chars)")
     
-    keys = get_keys(plaintext[-16:])
+    keys = get_keys(text[-16:])
+    if len(keys) == 0:
+        print('Cant hack any key. Possibly bad text!')
+        return
+
     print('This can be key:')
     for key in keys:
         print('\t' + repr(key))
+        print('\tWas decrypted by this key:')
+        decrypted = b''
+        for i in range(0, len(text) - 16, 16):
+            pair = hex2pair(text[i: i + 16])
+            dec = decrypt(key, pair)
+            decrypted += pair2bytes(*dec)
+        print('\t\t' + decrypted.decode())
     return
 
 if __name__ == '__main__':
